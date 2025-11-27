@@ -1,16 +1,16 @@
-from urlextract import *
+from urlextract import URLExtract
 from wordcloud import WordCloud
 import pandas as pd
 from collections import Counter
 import emoji
 
-
 extract = URLExtract()
-def fetch_stats(selected_user,df):
+
+def fetch_stats(selected_user, df):
     if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
-     # fetch the number of messages
+    # fetch the number of messages
     num_messages = df.shape[0]
 
     # fetch the total number of words
@@ -23,28 +23,32 @@ def fetch_stats(selected_user,df):
 
     # fetch number of links shared
     links = []
-    for i in df['message']:
-        links.extend(extract.find_urls(message))
+    for message in df['message']:
+        links.extend(extract.find_urls(message))  # fixed: use correct variable
 
-    return num_messages, len(words), num_media_messages,len(links)
+    return num_messages, len(words), num_media_messages, len(links)
+
 
 def fetch_most_busy_user(df):
     x = df['user'].value_counts().head()
-    df = round((df['user'].value_counts() / df.shape[0] * 100), 2).reset_index().rename(
-        columns={'count': 'percent', 'user': 'name'})
-    return x,df
+    df_percent = round((df['user'].value_counts() / df.shape[0] * 100), 2).reset_index().rename(
+        columns={'count': 'percent', 'user': 'name'}
+    )
+    return x, df_percent
 
-def create_wordcloud(selected_user,df):
+
+def create_wordcloud(selected_user, df):
     if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
-    wc = WordCloud(width=500,height=500,min_font_size=10,background_color='white')
+    wc = WordCloud(width=500, height=500, min_font_size=10, background_color='white')
     df_wc = wc.generate(df['message'].str.cat(sep=" "))
     return df_wc
 
-def most_common_words(selected_user,df):
-    f = open('stop_hinglish.txt', 'r')
-    stop_words = f.read()
+
+def most_common_words(selected_user, df):
+    with open('stop_hinglish.txt', 'r', encoding='utf-8') as f:
+        stop_words = f.read()
 
     if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
@@ -63,56 +67,50 @@ def most_common_words(selected_user,df):
     return most_common_df
 
 
-
-def emoji_helper(selected_user,df):
-    #emoji-1.7.0
+def emoji_helper(selected_user, df):
     if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
     emojis = []
     for message in df['message']:
-        emojis.extend([c for c in message if c in emoji.UNICODE_EMOJI['en']])
+        emojis.extend([c for c in message if emoji.is_emoji(c)])
 
-    emoji_df = pd.DataFrame(Counter(emojis).most_common(len(Counter(emojis))))
+    # Create DataFrame with proper column names
+    emoji_df = pd.DataFrame(Counter(emojis).most_common(len(Counter(emojis))),
+                            columns=['emoji', 'count'])
 
     return emoji_df
-def monthly_timeline(selected_user,df):
 
+
+def monthly_timeline(selected_user, df):
     if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
     timeline = df.groupby(['year', 'month_num', 'month']).count()['message'].reset_index()
 
-    time = []
-    for i in range(timeline.shape[0]):
-        time.append(timeline['month'][i] + "-" + str(timeline['year'][i]))
-
-    timeline['time'] = time
+    timeline['time'] = timeline.apply(lambda row: f"{row['month']}-{row['year']}", axis=1)
 
     return timeline
-def week_activity_map(selected_user,df):
 
+
+def week_activity_map(selected_user, df):
     if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
     return df['day_name'].value_counts()
-def month_activity_map(selected_user,df):
 
+
+def month_activity_map(selected_user, df):
     if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
     return df['month'].value_counts()
 
-def activity_heatmap(selected_user,df):
 
+def activity_heatmap(selected_user, df):
     if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
     user_heatmap = df.pivot_table(index='day_name', columns='period', values='message', aggfunc='count').fillna(0)
 
     return user_heatmap
-
-
-
-
-
